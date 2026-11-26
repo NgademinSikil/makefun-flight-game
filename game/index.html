@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SENJA — Sunset Archipelago Pilot</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #1c2340;
+    font-family: "Segoe UI", Verdana, sans-serif; }
+  #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  .panel { position: absolute; color: #ffe9b0; background: rgba(12, 18, 38, 0.62);
+    border: 1px solid rgba(255, 190, 90, 0.55); border-radius: 8px;
+    padding: 8px 12px; font-size: 15px; line-height: 1.35;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.8); backdrop-filter: blur(2px); }
+  .panel b { color: #ffd76a; }
+  #hud-left { top: 12px; left: 12px; min-width: 210px; }
+  #hud-left .row { display: flex; justify-content: space-between; gap: 14px; }
+  #hud-left .num { font-variant-numeric: tabular-nums; font-weight: 700; color: #fff3cf; }
+  .bar { height: 9px; border-radius: 5px; background: rgba(255,255,255,0.18); overflow: hidden; margin: 2px 0 6px; }
+  .bar > div { height: 100%; border-radius: 5px; }
+  #fuel-fill { background: linear-gradient(90deg, #ffb347, #ff7b2f); width: 100%; }
+  #thr-fill { background: linear-gradient(90deg, #7ee2a8, #2fae6e); width: 60%; }
+  #dmg-fill { background: linear-gradient(90deg, #ff5d5d, #c81e1e); width: 0%; }
+  #hud-mission { top: 12px; left: 50%; transform: translateX(-50%); text-align: center; max-width: 46vw; }
+  #hud-mission .title { font-size: 17px; font-weight: 700; color: #ffd76a; letter-spacing: 0.5px; }
+  #hud-mission .obj { font-size: 14px; color: #fff3cf; }
+  #hud-score { top: 12px; right: 12px; text-align: right; min-width: 130px; }
+  #hud-score .num { font-size: 22px; font-weight: 700; color: #ffd76a; font-variant-numeric: tabular-nums; }
+  #hud-msg { top: 34%; left: 50%; transform: translateX(-50%); font-size: 22px; font-weight: 700;
+    color: #fff3cf; background: rgba(12, 18, 38, 0.55); border: 1px solid rgba(255,190,90,0.5);
+    border-radius: 10px; padding: 10px 22px; display: none; text-align: center; white-space: nowrap; }
+  #hud-hint { bottom: 12px; left: 50%; transform: translateX(-50%); font-size: 13px;
+    color: #ffe9b0; opacity: 0.9; white-space: nowrap; }
+  #hud-compass { bottom: 12px; left: 12px; font-size: 13px; }
+  #hud-compass .num { font-weight: 700; color: #fff3cf; }
+  .overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; text-align: center; color: #ffe9b0;
+    background: linear-gradient(180deg, rgba(20,16,60,0.55), rgba(60,20,40,0.62)); }
+  .overlay h1 { font-size: 46px; margin: 0 0 4px; color: #ffd76a; letter-spacing: 3px;
+    text-shadow: 0 3px 14px rgba(255,120,40,0.55); }
+  .overlay h2 { font-size: 18px; margin: 0 0 18px; font-weight: 400; color: #fff3cf; }
+  .overlay p { max-width: 620px; font-size: 15px; line-height: 1.6; margin: 6px 0; }
+  .overlay .keys { font-size: 14px; background: rgba(12,18,38,0.6); border: 1px solid rgba(255,190,90,0.5);
+    border-radius: 8px; padding: 10px 18px; margin-top: 12px; line-height: 1.9; }
+  .overlay .go { margin-top: 20px; font-size: 19px; font-weight: 700; color: #ffd76a;
+    animation: pulse 1.4s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.45; } }
+  #title, #crash { display: none; }
+  #status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+</style>
+</head>
+<body>
+<noscript><p style="color:#ffe9b0;padding:20px">SENJA needs JavaScript to fly.</p></noscript>
+<canvas id="game" aria-label="SENJA Sunset Archipelago Pilot: fly a small prop plane between volcanic islands at sunset"></canvas>
+
+<div id="hud-left" class="panel">
+  <div class="row"><span>ALT</span><span class="num" id="hud-alt">0 m</span></div>
+  <div class="row"><span>SPD</span><span class="num" id="hud-spd">0 kt</span></div>
+  <div class="row"><span>HDG</span><span class="num" id="hud-hdg">090&deg;</span></div>
+  <div class="row"><span>VERT</span><span class="num" id="hud-vert">0 m/s</span></div>
+  <div>FUEL <span class="num" id="hud-fuel-pct" style="float:right">100%</span></div>
+  <div class="bar"><div id="fuel-fill"></div></div>
+  <div>THROTTLE <span class="num" id="hud-thr-pct" style="float:right">60%</span></div>
+  <div class="bar"><div id="thr-fill"></div></div>
+  <div>DAMAGE <span class="num" id="hud-dmg-pct" style="float:right">0%</span></div>
+  <div class="bar"><div id="dmg-fill"></div></div>
+</div>
+
+<div id="hud-mission" class="panel">
+  <div class="title" id="hud-mission-title">SENJA</div>
+  <div class="obj" id="hud-mission-obj">Fly the archipelago</div>
+</div>
+
+<div id="hud-score" class="panel">
+  <div>SCORE</div>
+  <div class="num" id="hud-score-num">0</div>
+  <div id="hud-leg" style="font-size:13px">Leg 1 &middot; Pulau Senja</div>
+</div>
+
+<div id="hud-msg"></div>
+
+<div id="hud-compass" class="panel">HDG <span class="num" id="hud-compass-num">090&deg;</span> &nbsp;|&nbsp; <span id="hud-cam">CHASE CAM</span> &nbsp;|&nbsp; <span id="hud-gear">GEAR UP</span></div>
+<div id="hud-hint" class="panel">W/S pitch &middot; A/D bank &middot; Shift/Ctrl throttle &middot; C camera &middot; G gear &middot; M sound &middot; P pause</div>
+
+<div id="title" class="overlay">
+  <h1>SENJA</h1>
+  <h2>Sunset Archipelago Pilot</h2>
+  <p>Fly a small prop plane between the volcanic islands of the Senja archipelago as the sun
+     goes down. Three kinds of sorties: deliver cargo between island airstrips, race the
+     floating rings, and rescue a stranded pilot. Watch your fuel, land gently, and mind
+     the volcanoes.</p>
+  <div class="keys">
+    W / S or &uarr; / &darr; &mdash; pitch &nbsp;&middot;&nbsp; A / D or &larr; / &rarr; &mdash; bank &amp; turn<br>
+    Shift &mdash; more throttle &nbsp;&middot;&nbsp; Ctrl &mdash; less throttle &nbsp;&middot;&nbsp; G &mdash; landing gear<br>
+    C &mdash; chase / cockpit camera &nbsp;&middot;&nbsp; Mouse drag &mdash; look around &nbsp;&middot;&nbsp; M &mdash; sound on/off
+  </div>
+  <div class="go">Press ENTER to fly</div>
+</div>
+
+<div id="crash" class="overlay">
+  <h1 id="crash-title">CRASHED</h1>
+  <h2 id="crash-sub">The plane is a write-off. The pilot walks away.</h2>
+  <p id="crash-score"></p>
+  <div class="go">Press R to fly again</div>
+</div>
+
+<p id="status" role="status" aria-live="polite"></p>
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.min.js" } }
+</script>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
